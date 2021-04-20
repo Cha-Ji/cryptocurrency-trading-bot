@@ -1,8 +1,8 @@
-#----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 # PyStock
 # Larry Williams Volatility Breakout Strategy + Moving Average
 # Ver 0.06
-#----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 # History
 # v0.06: 1) Dual Noise 알고리즘 적용
 #        2) adaptive noise K 제거
@@ -18,7 +18,7 @@
 #
 # v0.03: 1) 최소 주문 수량 추가
 #        2) RotatingFileHandler
-#----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 
 import pyupbit
 import time
@@ -26,18 +26,21 @@ import datetime
 
 
 INTERVAL = 1                                        # 매수 시도 interval (1초 기본)
-DEBUG = False                                      # True: 매매 API 호출 안됨, False: 실제로 매매 API 호출
+# True: 매매 API 호출 안됨, False: 실제로 매매 API 호출
+DEBUG = False
 
-COIN_NUMS = 10                                      # 분산 투자 코인 개수 (자산/COIN_NUMS를 각 코인에 투자)
+# 분산 투자 코인 개수 (자산/COIN_NUMS를 각 코인에 투자)
+COIN_NUMS = 10
 DUAL_NOISE_LIMIT = 0.6                              # 듀얼 노이즈
 LARRY_K = 0.5
 
-TRAILLING_STOP_MIN_PROOFIT = 0.5                    # 최소 40% 이상 수익이 발생한 경우에 Traillig Stop 동작
+# 최소 40% 이상 수익이 발생한 경우에 Traillig Stop 동작
+TRAILLING_STOP_MIN_PROOFIT = 0.5
 TRAILLING_STOP_GAP = 0.05                           # 최고점 대비 5% 하락시 매도
 
 
 # Load account
-with open("upbit.txt") as f:
+with open("/Users/cha-ji/Git/TradingBot/cryptocurrency-trading-bot/upbit/upbit.txt") as f:
     lines = f.readlines()
     key = lines[0].strip()
     secret = lines[1].strip()
@@ -103,12 +106,13 @@ def select_portfolio(tickers, window=5):
         noise_list = []
         for ticker in tickers:
             df = pyupbit.get_ohlcv(ticker, interval="day", count=10)
-            noise = 1 - abs(df['open'] - df['close']) / (df['high'] - df['low'])
+            noise = 1 - abs(df['open'] - df['close']) / \
+                (df['high'] - df['low'])
             average_noise = noise.rolling(window=window).mean()
             noise_list.append((ticker, average_noise[-2]))
 
         # noise가 낮은 순으로 정렬
-        sorted_noise_list = sorted(noise_list, key=lambda x:x[1])
+        sorted_noise_list = sorted(noise_list, key=lambda x: x[1])
 
         # 절대 노이즈 전략 기반으로 포트폴리오 구성
         for x in sorted_noise_list[:COIN_NUMS]:
@@ -149,7 +153,7 @@ def inquiry_high_prices(tickers):
 
         return high_prices
     except:
-        return  {ticker:0 for ticker in tickers}
+        return {ticker: 0 for ticker in tickers}
 
 
 def inquiry_targets(tickers):
@@ -217,8 +221,9 @@ def try_buy(portfolio, prices, targets, ma5s, budget_per_coin, holdings, high_pr
             # 2) 당일 고가가 목표가 대비 2% 이상 오르지 않았으며 (프로그램을 장중에 실행했을 때 고점찍고 하락중인 종목을 사지 않기 위해)
             # 3) 현재가가 5일 이동평균 이상이고
             # 4) 해당 코인을 보유하지 않았을 때
-            if price >= target and high <= target * 1.02  and price >= ma5 and holdings[ticker] is False:
-                orderbook = pyupbit.get_orderbook(ticker)[0]['orderbook_units'][0]
+            if price >= target and high <= target * 1.02 and price >= ma5 and holdings[ticker] is False:
+                orderbook = pyupbit.get_orderbook(
+                    ticker)[0]['orderbook_units'][0]
                 sell_price = int(orderbook['ask_price'])
                 sell_unit = orderbook['ask_size']
                 unit = budget_per_coin/float(sell_price)
@@ -232,7 +237,7 @@ def try_buy(portfolio, prices, targets, ma5s, budget_per_coin, holdings, high_pr
                 time.sleep(INTERVAL)
                 holdings[ticker] = True
     except:
-        print("try buy error");
+        print("try buy error")
 
 
 def retry_sell(ticker, unit, retry_cnt=10):
@@ -247,8 +252,10 @@ def retry_sell(ticker, unit, retry_cnt=10):
         ret = None
         while ret is None and retry_cnt > 0:
             orderbook = pyupbit.get_orderbook(ticker)[0]['orderbook_units'][0]
-            buy_price = int(orderbook['bid_price'])                                 # 최우선 매수가
-            buy_unit = orderbook['bid_size']                                        # 최우선 매수수량
+            # 최우선 매수가
+            buy_price = int(orderbook['bid_price'])
+            # 최우선 매수수량
+            buy_unit = orderbook['bid_size']
             min_unit = min(unit, buy_unit)
 
             if DEBUG is False:
@@ -260,6 +267,7 @@ def retry_sell(ticker, unit, retry_cnt=10):
             retry_cnt = retry_cnt - 1
     except:
         print("retry sell error")
+
 
 def try_sell(tickers):
     '''
@@ -276,9 +284,12 @@ def try_sell(tickers):
             unit = units.get(ticker, 0)                     # 보유 수량
 
             if unit > 0:
-                orderbook = pyupbit.get_orderbook(ticker)[0]['orderbook_units'][0]
-                buy_price = int(orderbook['bid_price'])                                 # 최우선 매수가
-                buy_unit = orderbook['bid_size']                                        # 최우선 매수수량
+                orderbook = pyupbit.get_orderbook(
+                    ticker)[0]['orderbook_units'][0]
+                # 최우선 매수가
+                buy_price = int(orderbook['bid_price'])
+                # 최우선 매수수량
+                buy_unit = orderbook['bid_size']
                 min_unit = min(unit, buy_unit)
 
                 if DEBUG is False:
@@ -294,8 +305,8 @@ def try_sell(tickers):
 
 
 def get_blance_unit(tickers):
-    balances = upbit.get_balances()[0]
-    units = {ticker:0 for ticker in tickers}
+    balances = upbit.get_balances()
+    units = {ticker: 0 for ticker in tickers}
 
     for balance in balances:
         if balance['currency'] == "KRW":
@@ -332,13 +343,17 @@ def try_trailling_stop(portfolio, prices, targets, holdings, high_prices):
 
             if gain >= TRAILLING_STOP_MIN_PROOFIT and gap_from_high >= TRAILLING_STOP_GAP and holdings[ticker] is True:
                 if unit > 0:
-                    orderbook = pyupbit.get_orderbook(ticker)[0]['orderbook_units'][0]
-                    buy_price = int(orderbook['bid_price'])                                 # 최우선 매수가
-                    buy_unit = orderbook['bid_size']                                        # 최우선 매수수량
+                    orderbook = pyupbit.get_orderbook(
+                        ticker)[0]['orderbook_units'][0]
+                    # 최우선 매수가
+                    buy_price = int(orderbook['bid_price'])
+                    # 최우선 매수수량
+                    buy_unit = orderbook['bid_size']
                     min_unit = min(unit, buy_unit)
 
                     if DEBUG is False:
-                        ret = upbit.sell_limit_order(ticker, buy_price, min_unit)
+                        ret = upbit.sell_limit_order(
+                            ticker, buy_price, min_unit)
                         time.sleep(INTERVAL)
 
                         if ret is None:
@@ -350,6 +365,7 @@ def try_trailling_stop(portfolio, prices, targets, holdings, high_prices):
     except:
         print("try trailing stop error")
 
+
 def cal_budget():
     '''
     한 코인에 대해 투자할 투자 금액 계산
@@ -358,10 +374,12 @@ def cal_budget():
     try:
         balances = upbit.get_balances()[0]
         krw_balance = 0
-        for balance in balances:
-            if balance['currency'] == 'KRW':
-                krw_balance = float(balance['balance'])
-                break
+        # for balance in balances:
+        #     if balance['currency'] == 'KRW':
+        #         krw_balance = float(balance['balance'])
+        #         break
+        if balances['currency'] == 'KRW':
+            krw_balance = float(balances['balance'])
         budget_per_coin = int(krw_balance / COIN_NUMS)
         return budget_per_coin
     except:
@@ -401,52 +419,74 @@ def print_status(portfolio, now, prices, targets, high_prices):
         print(now)
         print(portfolio)
         for ticker in portfolio:
-            print("{:<10} 목표가: {:>8} 현재가: {:>8} 고가: {:>8}".format(ticker, int(targets[ticker]), int(prices[ticker]), int(high_prices[ticker])))
+            print("{:<10} 목표가: {:>8} 현재가: {:>8} 고가: {:>8}".format(ticker, int(
+                targets[ticker]), int(prices[ticker]), int(high_prices[ticker])))
     except:
         pass
 
 
-#----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 # 매매 알고리즘 시작
-#---------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------
 now = datetime.datetime.now()                                           # 현재 시간 조회
-sell_time1, sell_time2 = make_sell_times(now)                           # 초기 매도 시간 설정
-setup_time1, setup_time2 = make_setup_times(now)                        # 초기 셋업 시간 설정
+sell_time1, sell_time2 = make_sell_times(
+    now)                           # 초기 매도 시간 설정
+setup_time1, setup_time2 = make_setup_times(
+    now)                        # 초기 셋업 시간 설정
 
-tickers = pyupbit.get_tickers(fiat="KRW")                              # 티커 리스트 얻기
-portfolio = select_portfolio(tickers)                                   # 듀얼 노이즈 전략 기반으로 portfolio 선정
+tickers = pyupbit.get_tickers(
+    fiat="KRW")                              # 티커 리스트 얻기
+# 듀얼 노이즈 전략 기반으로 portfolio 선정
+portfolio = select_portfolio(tickers)
 
-targets = inquiry_targets(portfolio)                                    # 코인별 목표가 계산
-mas = inquiry_moving_average(portfolio)                                 # 코인별로 5일 이동평균 계산
-budget_per_coin = cal_budget()                                          # 코인별 최대 배팅 금액 계산
+# 코인별 목표가 계산
+targets = inquiry_targets(portfolio)
+# 코인별로 5일 이동평균 계산
+mas = inquiry_moving_average(portfolio)
+# 코인별 최대 배팅 금액 계산
+budget_per_coin = cal_budget()
 
-holdings = {ticker:False for ticker in portfolio}                     # 보유 상태 초기화
-high_prices = inquiry_high_prices(portfolio)                            # 코인별 당일 고가 저장
+# 보유 상태 초기화
+holdings = {ticker: False for ticker in portfolio}
+high_prices = inquiry_high_prices(
+    portfolio)                            # 코인별 당일 고가 저장
 
 while True:
     now = datetime.datetime.now()
 
     # 1차 청산 (08:50:00 ~ 08:50:10)
     if sell_time1 < now < sell_time2:
-        try_sell(tickers)                                                   # 각 가상화폐에 대해 매도 시도
-        holdings = {ticker:True for ticker in portfolio}                  # 당일에는 더 이상 매수되지 않도록
+        # 각 가상화폐에 대해 매도 시도
+        try_sell(tickers)
+        # 당일에는 더 이상 매수되지 않도록
+        holdings = {ticker: True for ticker in portfolio}
         time.sleep(10)
 
     # 새로운 거래일에 대한 데이터 셋업 (09:00:00 ~ 09:00:10)
     if setup_time1 < now < setup_time2:
-        tickers = pyupbit.get_tickers(fiat="KRW")                          # 티커 리스트 얻기
-        try_sell(tickers)                                                   # 매도 되지 않은 코인에 대해서 한 번 더 매도 시도
+        tickers = pyupbit.get_tickers(
+            fiat="KRW")                          # 티커 리스트 얻기
+        # 매도 되지 않은 코인에 대해서 한 번 더 매도 시도
+        try_sell(tickers)
 
-        portfolio = select_portfolio(tickers)                               # 듀얼 노이즈 전략 기반으로 portfolio 선정
-        targets = inquiry_targets(portfolio)                                  # 목표가 갱신
-        mas = inquiry_moving_average(portfolio)                               # 이동평균 갱신
-        budget_per_coin = cal_budget()                                      # 코인별 최대 배팅 금액 계산
+        # 듀얼 노이즈 전략 기반으로 portfolio 선정
+        portfolio = select_portfolio(tickers)
+        # 목표가 갱신
+        targets = inquiry_targets(portfolio)
+        mas = inquiry_moving_average(
+            portfolio)                               # 이동평균 갱신
+        # 코인별 최대 배팅 금액 계산
+        budget_per_coin = cal_budget()
 
-        sell_time1, sell_time2 = make_sell_times(now)                       # 당일 매도 시간 갱신
-        setup_time1, setup_time2 = make_setup_times(now)                    # 다음 거래일 셋업 시간 갱신
+        sell_time1, sell_time2 = make_sell_times(
+            now)                       # 당일 매도 시간 갱신
+        setup_time1, setup_time2 = make_setup_times(
+            now)                    # 다음 거래일 셋업 시간 갱신
 
-        holdings = {ticker:False for ticker in portfolio}                  # 모든 코인에 대한 보유 상태 초기화
-        high_prices = {ticker: 0 for ticker in portfolio}                   # 코인별 당일 고가 초기화
+        # 모든 코인에 대한 보유 상태 초기화
+        holdings = {ticker: False for ticker in portfolio}
+        # 코인별 당일 고가 초기화
+        high_prices = {ticker: 0 for ticker in portfolio}
         time.sleep(10)
 
     # 현재가 조회
@@ -456,11 +496,10 @@ while True:
 
     # 매수
     if prices is not None:
-        try_buy(portfolio, prices, targets, mas, budget_per_coin, holdings, high_prices)
+        try_buy(portfolio, prices, targets, mas,
+                budget_per_coin, holdings, high_prices)
 
     # 매도 (익절)
     try_trailling_stop(portfolio, prices, targets, holdings, high_prices)
 
     time.sleep(INTERVAL)
-
-
